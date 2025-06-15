@@ -8,19 +8,22 @@ const config = require('./config');
 const MongoDBMonitor = require('./monitor');
 const SequentialWriter = require('./writer');
 const DataIntegrityValidator = require('./validator');
+const WebServer = require('./web-server');
 
 class MongoDBHATester {
   constructor() {
     this.monitor = new MongoDBMonitor();
     this.writer = new SequentialWriter();
     this.validator = new DataIntegrityValidator();
+    this.webServer = new WebServer();
     
     this.isRunning = false;
     this.startTime = null;
     this.components = {
       monitor: false,
       writer: false,
-      validator: false
+      validator: false,
+      webServer: false
     };
   }
 
@@ -100,8 +103,19 @@ class MongoDBHATester {
         console.log(colors.red('❌ 驗證器初始化失敗'));
       }
 
+      // 初始化 Web 服務器
+      console.log(colors.yellow('🌐 初始化 Web 服務器...'));
+      const webServerSuccess = await this.webServer.initialize();
+      this.components.webServer = webServerSuccess;
+      
+      if (webServerSuccess) {
+        console.log(colors.green('✅ Web 服務器初始化成功'));
+      } else {
+        console.log(colors.red('❌ Web 服務器初始化失敗'));
+      }
+
       const successCount = Object.values(this.components).filter(Boolean).length;
-      console.log(colors.blue(`🎯 組件初始化完成: ${successCount}/3 個組件成功`));
+      console.log(colors.blue(`🎯 組件初始化完成: ${successCount}/4 個組件成功`));
       
       return successCount > 0;
       
@@ -147,6 +161,12 @@ class MongoDBHATester {
         await this.validator.startContinuousValidation();
       }
 
+      // 啟動 Web 服務器
+      if (this.components.webServer) {
+        console.log(colors.yellow('🌐 啟動 Web 服務器...'));
+        await this.webServer.start();
+      }
+
       console.log(colors.green('✅ 所有組件已啟動，開始完整測試'));
       this.displayRunningStatus();
 
@@ -177,6 +197,7 @@ class MongoDBHATester {
     console.log(colors.white(`  📊 監控器: ${this.components.monitor ? colors.green('運行中') : colors.red('未運行')}`));
     console.log(colors.white(`  ✏️  寫入器: ${this.components.writer ? colors.green('運行中') : colors.red('未運行')}`));
     console.log(colors.white(`  🔍 驗證器: ${this.components.validator ? colors.green('運行中') : colors.red('未運行')}`));
+    console.log(colors.white(`  🌐 Web服務器: ${this.components.webServer ? colors.green('運行中') : colors.red('未運行')}`));
     
     // 寫入統計
     if (this.components.writer && this.writer.successCount > 0) {
@@ -247,6 +268,10 @@ class MongoDBHATester {
 
       if (this.components.monitor) {
         await this.monitor.stop();
+      }
+
+      if (this.components.webServer) {
+        await this.webServer.stop();
       }
 
       // 等待組件完全停止

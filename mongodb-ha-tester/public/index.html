@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MongoDB HA Tester - 即時監控面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-healthy {
+            background-color: #27ae60;
+        }
+
+        .status-warning {
+            background-color: #f39c12;
+        }
+
+        .status-error {
+            background-color: #e74c3c;
+        }
+
+        .status-unknown {
+            background-color: #95a5a6;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+        }
+
+        .metric-label {
+            font-weight: 500;
+            color: #34495e;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .replica-list {
+            list-style: none;
+        }
+
+        .replica-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .replica-primary {
+            border-left-color: #27ae60;
+            background: #d5f4e6;
+        }
+
+        .replica-secondary {
+            border-left-color: #3498db;
+            background: #ebf3fd;
+        }
+
+        .replica-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .replica-state {
+            font-size: 0.9rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 500;
+        }
+
+        .state-primary {
+            background-color: #27ae60;
+        }
+
+        .state-secondary {
+            background-color: #3498db;
+        }
+
+        .state-arbiter {
+            background-color: #f39c12;
+        }
+
+        .error-log {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .error-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #e74c3c;
+            background: white;
+        }
+
+        .error-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .error-message {
+            color: #721c24;
+            font-weight: 500;
+        }
+
+        .records-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .records-table th,
+        .records-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .records-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .records-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            color: #7f8c8d;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+        }
+
+        .connected {
+            background-color: #27ae60;
+        }
+
+        .disconnected {
+            background-color: #e74c3c;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">🔗 連線中...</div>
+    
+    <div class="container">
+        <header>
+            <h1>🚀 MongoDB HA 監控面板</h1>
+            <p class="subtitle">即時監控 MongoDB Replica Set 高可用性狀態</p>
+        </header>
+
+        <div class="grid">
+            <!-- 系統狀態卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📊 系統狀態</h3>
+                    <div class="status-indicator status-unknown" id="systemStatus"></div>
+                </div>
+                <div id="systemMetrics">
+                    <div class="loading">載入中...</div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-primary" onclick="refreshStatus()">🔄 重新整理</button>
+                    <button class="btn btn-success" onclick="runValidation()">✅ 執行驗證</button>
+                </div>
+            </div>
+
+            <!-- Replica Set 狀態 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">🗂️ Replica Set</h3>
+                    <div class="status-indicator status-unknown" id="replicaStatus"></div>
+                </div>
+                <ul class="replica-list" id="replicaList">
+                    <li class="loading">載入中...</li>
+                </ul>
+            </div>
+
+            <!-- 統計資訊 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📈 統計資訊</h3>
+                    <div class="status-indicator status-unknown" id="statsStatus"></div>
+                </div>
+                <div id="statisticsData">
+                    <div class="loading">載入中...</div>
+                </div>
+            </div>
+
+            <!-- 錯誤日誌 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">⚠️ 錯誤日誌</h3>
+                    <div class="status-indicator status-unknown" id="errorStatus"></div>
+                </div>
+                <div class="error-log" id="errorLog">
+                    <div class="loading">載入中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近記錄 -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">📝 最近測試記錄</h3>
+                <div class="status-indicator status-unknown" id="recordsStatus"></div>
+            </div>
+            <div id="recentRecords">
+                <div class="loading">載入中...</div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>🔧 MongoDB HA Tester v1.0.0 | 即時更新於 <span id="lastUpdate">--</span></p>
+        </footer>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectTimeout = null;
+        let isConnected = false;
+
+        // WebSocket 連線管理
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    console.log('WebSocket 連線成功');
+                    isConnected = true;
+                    updateConnectionStatus(true);
+                    if (reconnectTimeout) {
+                        clearTimeout(reconnectTimeout);
+                        reconnectTimeout = null;
+                    }
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('解析 WebSocket 訊息失敗:', error);
+                    }
+                };
+                
+                ws.onclose = function() {
+                    console.log('WebSocket 連線關閉');
+                    isConnected = false;
+                    updateConnectionStatus(false);
+                    // 自動重連
+                    if (!reconnectTimeout) {
+                        reconnectTimeout = setTimeout(connectWebSocket, 5000);
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('WebSocket 錯誤:', error);
+                    isConnected = false;
+                    updateConnectionStatus(false);
+                };
+            } catch (error) {
+                console.error('建立 WebSocket 連線失敗:', error);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // 處理 WebSocket 訊息
+        function handleWebSocketMessage(data) {
+            switch (data.type) {
+                case 'status':
+                    updateSystemStatus(data.data);
+                    break;
+                case 'stats':
+                    updateStats(data.data);
+                    break;
+                default:
+                    console.log('未知的 WebSocket 訊息類型:', data.type);
+            }
+        }
+
+        // 更新連線狀態
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.textContent = '🟢 已連線';
+                statusEl.className = 'connection-status connected';
+            } else {
+                statusEl.textContent = '🔴 連線中斷';
+                statusEl.className = 'connection-status disconnected';
+            }
+        }
+
+        // API 請求函數
+        async function apiRequest(endpoint) {
+            try {
+                const response = await fetch(`/api${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`API 請求失敗 ${endpoint}:`, error);
+                throw error;
+            }
+        }
+
+        // 更新系統狀態
+        function updateSystemStatus(data) {
+            const metricsEl = document.getElementById('systemMetrics');
+            const statusEl = document.getElementById('systemStatus');
+            
+            if (data) {
+                // 判斷整體狀態
+                const isHealthy = data.replicaSet && data.replicaSet.ok === 1;
+                statusEl.className = `status-indicator ${isHealthy ? 'status-healthy' : 'status-error'}`;
+                
+                metricsEl.innerHTML = `
+                    <div class="metric">
+                        <span class="metric-label">MongoDB 版本:</span>
+                        <span class="metric-value">${data.version || 'N/A'}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Replica Set:</span>
+                        <span class="metric-value">${data.replicaSet?.setName || 'N/A'}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">主節點:</span>
+                        <span class="metric-value">${data.replicaSet?.primary || 'N/A'}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">記憶體使用:</span>
+                        <span class="metric-value">${data.memory ? Math.round(data.memory.resident) + ' MB' : 'N/A'}</span>
+                    </div>
+                `;
+                
+                // 更新 Replica Set 列表
+                updateReplicaList(data.replicaSet?.members || []);
+                
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString('zh-TW');
+            } else {
+                statusEl.className = 'status-indicator status-error';
+                metricsEl.innerHTML = '<div class="loading">無法獲取系統狀態</div>';
+            }
+        }
+
+        // 更新 Replica Set 列表
+        function updateReplicaList(members) {
+            const listEl = document.getElementById('replicaList');
+            const statusEl = document.getElementById('replicaStatus');
+            
+            if (members.length > 0) {
+                const healthyMembers = members.filter(m => m.health === 1).length;
+                statusEl.className = `status-indicator ${healthyMembers === members.length ? 'status-healthy' : 'status-warning'}`;
+                
+                listEl.innerHTML = members.map(member => {
+                    const isPrimary = member.stateStr === 'PRIMARY';
+                    const itemClass = isPrimary ? 'replica-primary' : 'replica-secondary';
+                    const stateClass = isPrimary ? 'state-primary' : 'state-secondary';
+                    
+                    return `
+                        <li class="replica-item ${itemClass}">
+                            <span class="replica-name">${member.name}</span>
+                            <span class="replica-state ${stateClass}">${member.stateStr}</span>
+                        </li>
+                    `;
+                }).join('');
+            } else {
+                statusEl.className = 'status-indicator status-error';
+                listEl.innerHTML = '<li class="loading">無 Replica Set 資訊</li>';
+            }
+        }
+
+        // 更新統計資訊
+        function updateStats(data) {
+            const statsEl = document.getElementById('statisticsData');
+            const statusEl = document.getElementById('statsStatus');
+            
+            if (data) {
+                statusEl.className = 'status-indicator status-healthy';
+                
+                statsEl.innerHTML = `
+                    <div class="metric">
+                        <span class="metric-label">總記錄數:</span>
+                        <span class="metric-value">${data.totalRecords?.toLocaleString() || 0}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">最近1小時:</span>
+                        <span class="metric-value">${data.recentRecords?.toLocaleString() || 0}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">總錯誤數:</span>
+                        <span class="metric-value">${data.totalErrors?.toLocaleString() || 0}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">吞吐量:</span>
+                        <span class="metric-value">${data.throughput || 0} 記錄/秒</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">運行時間:</span>
+                        <span class="metric-value">${formatDuration(data.runtime || 0)}</span>
+                    </div>
+                `;
+            } else {
+                statusEl.className = 'status-indicator status-error';
+                statsEl.innerHTML = '<div class="loading">無法獲取統計資訊</div>';
+            }
+        }
+
+        // 格式化持續時間
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${hours}h ${minutes}m ${secs}s`;
+        }
+
+        // 載入錯誤日誌
+        async function loadErrorLog() {
+            try {
+                const response = await apiRequest('/errors?limit=10');
+                const errorLogEl = document.getElementById('errorLog');
+                const statusEl = document.getElementById('errorStatus');
+                
+                if (response.success && response.data.length > 0) {
+                    statusEl.className = 'status-indicator status-warning';
+                    errorLogEl.innerHTML = response.data.map(error => `
+                        <div class="error-item">
+                            <div class="error-time">${new Date(error.timestamp).toLocaleString('zh-TW')}</div>
+                            <div class="error-message">[${error.type}] ${error.message}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    statusEl.className = 'status-indicator status-healthy';
+                    errorLogEl.innerHTML = '<div class="loading">暫無錯誤記錄</div>';
+                }
+            } catch (error) {
+                document.getElementById('errorStatus').className = 'status-indicator status-error';
+                document.getElementById('errorLog').innerHTML = '<div class="loading">載入錯誤日誌失敗</div>';
+            }
+        }
+
+        // 載入最近記錄
+        async function loadRecentRecords() {
+            try {
+                const response = await apiRequest('/records?limit=10');
+                const recordsEl = document.getElementById('recentRecords');
+                const statusEl = document.getElementById('recordsStatus');
+                
+                if (response.success && response.data.records.length > 0) {
+                    statusEl.className = 'status-indicator status-healthy';
+                    recordsEl.innerHTML = `
+                        <table class="records-table">
+                            <thead>
+                                <tr>
+                                    <th>序列 ID</th>
+                                    <th>時間戳</th>
+                                    <th>寫入節點</th>
+                                    <th>狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${response.data.records.map(record => `
+                                    <tr>
+                                        <td>${record.sequenceId}</td>
+                                        <td>${new Date(record.timestamp).toLocaleString('zh-TW')}</td>
+                                        <td>${record.writtenTo || 'N/A'}</td>
+                                        <td>${record.status || 'success'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    statusEl.className = 'status-indicator status-warning';
+                    recordsEl.innerHTML = '<div class="loading">暫無測試記錄</div>';
+                }
+            } catch (error) {
+                document.getElementById('recordsStatus').className = 'status-indicator status-error';
+                document.getElementById('recentRecords').innerHTML = '<div class="loading">載入測試記錄失敗</div>';
+            }
+        }
+
+        // 重新整理狀態
+        async function refreshStatus() {
+            try {
+                const response = await apiRequest('/status');
+                if (response.success) {
+                    updateSystemStatus(response.data);
+                }
+            } catch (error) {
+                console.error('重新整理狀態失敗:', error);
+            }
+        }
+
+        // 執行驗證
+        async function runValidation() {
+            try {
+                const response = await fetch('/api/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ type: 'validation' })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ 驗證完成！');
+                    refreshStatus();
+                } else {
+                    alert('❌ 驗證失敗: ' + result.error);
+                }
+            } catch (error) {
+                alert('❌ 執行驗證時發生錯誤: ' + error.message);
+            }
+        }
+
+        // 載入統計資訊
+        async function loadStats() {
+            try {
+                const response = await apiRequest('/stats');
+                if (response.success) {
+                    updateStats(response.data);
+                }
+            } catch (error) {
+                document.getElementById('statsStatus').className = 'status-indicator status-error';
+                document.getElementById('statisticsData').innerHTML = '<div class="loading">載入統計資訊失敗</div>';
+            }
+        }
+
+        // 初始化頁面
+        async function initializePage() {
+            // 建立 WebSocket 連線
+            connectWebSocket();
+            
+            // 載入初始資料
+            await Promise.all([
+                refreshStatus(),
+                loadStats(),
+                loadErrorLog(),
+                loadRecentRecords()
+            ]);
+            
+            // 設定定期更新
+            setInterval(loadErrorLog, 30000); // 每30秒更新錯誤日誌
+            setInterval(loadRecentRecords, 10000); // 每10秒更新記錄
+            setInterval(loadStats, 5000); // 每5秒更新統計
+        }
+
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', initializePage);
+        
+        // 頁面關閉時清理 WebSocket
+        window.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>

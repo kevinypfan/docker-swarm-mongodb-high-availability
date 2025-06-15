@@ -84,10 +84,14 @@ services:
     hostname: mongodb-ha-tester
     networks:
       - mongodb-network
+    ports:
+      - "3000:3000"
     environment:
       MONGODB_URI: "mongodb://admin:password123@mongodb-primary:27017,mongodb-secondary1:27017,mongodb-secondary2:27017/mongodb-ha-test?replicaSet=rs0&authSource=admin"
       LOG_LEVEL: info
       NODE_ENV: production
+      WEB_PORT: 3000
+      WEB_HOST: "0.0.0.0"
     deploy:
       replicas: 1
       placement:

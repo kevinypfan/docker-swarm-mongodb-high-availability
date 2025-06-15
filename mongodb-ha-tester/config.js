@@ -64,6 +64,12 @@ const config = {
     retryDelay: toNumber(process.env.RETRY_DELAY, 1000)
   },
   
+  // Web 服務器設定
+  webServer: {
+    port: toNumber(process.env.WEB_PORT, 3000),
+    host: process.env.WEB_HOST || '0.0.0.0'
+  },
+  
   // 日誌設定
   logging: {
     level: process.env.LOG_LEVEL || 'info',
