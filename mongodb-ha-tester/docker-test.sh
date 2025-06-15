@@ -138,9 +138,8 @@ run_tester() {
     docker run -d \
         --name mongodb-ha-tester \
         --network mongodb-test-network \
+        --env-file .env \
         -e MONGODB_URI="mongodb://admin:password123@mongodb-test-primary:27017,mongodb-test-secondary:27017/mongodb-ha-test?replicaSet=rs0&authSource=admin" \
-        -e NODE_ENV=production \
-        -e LOG_LEVEL=info \
         mongodb-ha-tester:local
     
     log_success "HA Tester 啟動成功"
@@ -158,8 +157,8 @@ run_test() {
     
     docker run --rm \
         --network mongodb-test-network \
+        --env-file .env \
         -e MONGODB_URI="mongodb://admin:password123@mongodb-test-primary:27017,mongodb-test-secondary:27017/mongodb-ha-test?replicaSet=rs0&authSource=admin" \
-        -e NODE_ENV=production \
         mongodb-ha-tester:local \
         node index.js single
 }
@@ -172,8 +171,8 @@ failover_test() {
     docker run -d \
         --name mongodb-ha-tester-failover \
         --network mongodb-test-network \
+        --env-file .env \
         -e MONGODB_URI="mongodb://admin:password123@mongodb-test-primary:27017,mongodb-test-secondary:27017/mongodb-ha-test?replicaSet=rs0&authSource=admin" \
-        -e NODE_ENV=production \
         mongodb-ha-tester:local
     
     sleep 30

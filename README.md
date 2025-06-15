@@ -13,8 +13,9 @@ mongodb-test/
 │   └── init-replica-set.js       # Replica Set 初始化腳本
 ├── mongodb-ha-tester/            # MongoDB 高可用性測試工具
 │   ├── Dockerfile                # HA Tester 容器映像
-│   ├── .github/workflows/        # GitHub Actions 自動化部署
-│   ├── config.js                 # 配置檔案 (支援容器環境)
+│   ├── .env.example              # 環境變數範例檔案
+│   ├── .env                      # 環境變數設定 (git ignored)
+│   ├── config.js                 # 配置檔案 (dotenv 支援)
 │   ├── models.js                 # 資料庫模型定義
 │   ├── monitor.js                # MongoDB 狀態監控器
 │   ├── writer.js                 # 有序寫入測試器
@@ -23,6 +24,8 @@ mongodb-test/
 │   ├── test.js                   # 測試套件
 │   ├── docker-test.sh            # 本地 Docker 測試腳本
 │   └── README.md                 # 詳細使用說明
+├── .github/workflows/            # GitHub Actions 自動化部署
+├── deploy.sh                     # 一鍵部署腳本
 ├── DEPLOYMENT.md                 # Docker Swarm 部署指南
 └── README.md                     # 專案總覽 (本檔案)
 ```
@@ -42,7 +45,12 @@ mongodb-test/
 - **🚨 故障檢測**: 自動檢測故障轉移事件
 - **🐳 容器化**: 支援 Docker Swarm 部署和本地測試
 
-### 3. 自動化部署
+### 3. 環境配置管理
+- **dotenv 支援**: 使用 `.env` 檔案管理配置
+- **環境區分**: 自動偵測容器/本地開發環境
+- **參數可調**: 完全可配置的測試參數
+
+### 4. 自動化部署
 - **GitHub Actions**: 自動建立和推送 Docker 映像
 - **多平台支援**: linux/amd64 和 linux/arm64
 - **安全掃描**: 整合 Trivy 漏洞掃描
@@ -69,20 +77,28 @@ mongodb-test/
 
 ## 🚀 快速開始
 
-### 方式一: Docker Swarm 完整部署 (推薦)
+### 方式一: 一鍵自動部署 (推薦)
 
-1. **設定 Docker Hub 映像** (需要先推送映像到 Docker Hub)
+```bash
+# 一鍵部署完整測試套件 (首次運行會自動建立 .env 檔案)
+./deploy.sh
+
+# 或者重新建立映像並部署
+./deploy.sh deploy --build
+
+# 如需自定義設定，可手動複製和編輯環境變數檔案
+cp mongodb-ha-tester/.env.example mongodb-ha-tester/.env
+# 編輯 mongodb-ha-tester/.env 檔案調整設定
+```
+
+### 方式二: Docker Swarm 手動部署
+
+1. **設定環境變數**
    ```bash
-   # 設定你的 Docker Hub 使用者名稱
    export DOCKER_USERNAME=yourusername
-   
-   # 建立並推送映像 (在 mongodb-ha-tester/ 目錄下)
-   cd mongodb-ha-tester
-   docker build -t $DOCKER_USERNAME/mongodb-ha-tester:latest .
-   docker push $DOCKER_USERNAME/mongodb-ha-tester:latest
    ```
 
-2. **部署到 Docker Swarm**
+2. **手動部署步驟**
    ```bash
    # 初始化 Docker Swarm (如果尚未初始化)
    docker swarm init
@@ -90,18 +106,21 @@ mongodb-test/
    # 建立 overlay 網路
    docker network create --driver overlay --attachable mongodb-network
    
-   # 部署完整堆疊 (MongoDB + HA Tester)
-   cd deployment
+   # 建立並推送映像
+   cd mongodb-ha-tester
+   docker build -t $DOCKER_USERNAME/mongodb-ha-tester:latest .
+   docker push $DOCKER_USERNAME/mongodb-ha-tester:latest
+   
+   # 部署完整堆疊
+   cd ../deployment
    docker stack deploy -c docker-compose.yml mongodb-stack
    
-   # 檢查服務狀態
+   # 查看服務狀態和日誌
    docker service ls
-   
-   # 查看 HA Tester 即時日誌
    docker service logs -f mongodb-stack_mongodb-ha-tester
    ```
 
-### 方式二: 本地 Docker 測試
+### 方式三: 本地 Docker 測試
 
 1. **使用本地測試腳本**
    ```bash
@@ -121,7 +140,7 @@ mongodb-test/
    ./docker-test.sh cleanup
    ```
 
-### 方式三: 本地 Node.js 開發 (原始方法)
+### 方式四: 本地 Node.js 開發
 
 1. **啟動 MongoDB Replica Set**
    ```bash
@@ -129,9 +148,17 @@ mongodb-test/
    docker stack deploy -c docker-compose.yml mongodb-stack
    ```
 
-2. **本地運行 HA Tester**
+2. **設定本地開發環境**
    ```bash
    cd mongodb-ha-tester
+   
+   # 複製環境變數檔案
+   cp .env.example .env
+   
+   # 編輯 .env，取消註解本地開發 URI
+   # MONGODB_URI=mongodb://admin:password123@localhost:27017,localhost:27018,localhost:27019/mongodb-ha-test?replicaSet=rs0&authSource=admin
+   
+   # 安裝依賴並運行
    npm install
    npm start  # 完整測試
    # 或
@@ -208,17 +235,37 @@ const uri = "mongodb://admin:password123@localhost:27017,localhost:27018,localho
 mongodb://admin:password123@localhost:27017,localhost:27018,localhost:27019/mydb?replicaSet=rs0&authSource=admin
 ```
 
-## 管理命令
+## 🔧 管理命令
 
-### 檢查服務狀態
+### 使用部署腳本管理
+```bash
+# 查看部署狀態
+./deploy.sh status
+
+# 監控 HA Tester 日誌
+./deploy.sh logs
+
+# 顯示連線資訊
+./deploy.sh info
+
+# 清理整個環境
+./deploy.sh cleanup
+
+# 重新建立映像
+./deploy.sh build
+```
+
+### Docker 原生命令
 ```bash
 # 查看所有服務
 docker service ls
 
 # 查看特定服務日誌
-docker service logs mongodb-stack_mongodb-primary
+docker service logs -f mongodb-stack_mongodb-ha-tester
+docker service logs -f mongodb-stack_mongodb-primary
 
 # 查看服務詳細資訊
+docker service ps mongodb-stack_mongodb-ha-tester
 docker service ps mongodb-stack_mongodb-primary
 ```
 

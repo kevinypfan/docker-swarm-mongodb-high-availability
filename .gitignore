@@ -93,12 +93,13 @@ temp/
 .dockerignore
 docker-compose.override.yml
 
-# 環境變數檔案 (如果包含敏感資訊)
-# .env
-# .env.local
-# .env.development.local
-# .env.test.local
-# .env.production.local
+# 環境變數檔案 (包含敏感資訊)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+mongodb-ha-tester/.env
 
 # 日誌檔案
 logs

@@ -9,13 +9,19 @@
     "test": "node test.js",
     "monitor": "node monitor.js"
   },
-  "keywords": ["mongodb", "replica-set", "monitoring", "high-availability"],
+  "keywords": [
+    "mongodb",
+    "replica-set",
+    "monitoring",
+    "high-availability"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "mongoose": "^8.0.0",
     "colors": "^1.4.0",
-    "moment": "^2.29.4"
+    "dotenv": "^16.5.0",
+    "moment": "^2.29.4",
+    "mongoose": "^8.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
