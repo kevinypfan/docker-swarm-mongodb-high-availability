@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  mongodb-primary:
+    image: mongo:7.0
+    hostname: mongodb-primary
+    networks:
+      - mongodb-network
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-primary-data:/data/db
+      - mongodb-primary-config:/data/configdb
+      - ./mongod.conf:/etc/mongod.conf
+      - ./mongodb-keyfile:/data/configdb/mongodb-keyfile
+      - ./init-replica-set.js:/docker-entrypoint-initdb.d/init-replica-set.js
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    command: ["mongod", "--config", "/etc/mongod.conf"]
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  mongodb-secondary1:
+    image: mongo:7.0
+    hostname: mongodb-secondary1
+    networks:
+      - mongodb-network
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb-secondary1-data:/data/db
+      - mongodb-secondary1-config:/data/configdb
+      - ./mongod.conf:/etc/mongod.conf
+      - ./mongodb-keyfile:/data/configdb/mongodb-keyfile
+    command: ["mongod", "--config", "/etc/mongod.conf"]
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    depends_on:
+      - mongodb-primary
+
+  mongodb-secondary2:
+    image: mongo:7.0
+    hostname: mongodb-secondary2
+    networks:
+      - mongodb-network
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongodb-secondary2-data:/data/db
+      - mongodb-secondary2-config:/data/configdb
+      - ./mongod.conf:/etc/mongod.conf
+      - ./mongodb-keyfile:/data/configdb/mongodb-keyfile
+    command: ["mongod", "--config", "/etc/mongod.conf"]
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    depends_on:
+      - mongodb-primary
+
+  # MongoDB High Availability Tester
+  mongodb-ha-tester:
+    image: ${DOCKER_USERNAME:-yourusername}/mongodb-ha-tester:latest
+    hostname: mongodb-ha-tester
+    networks:
+      - mongodb-network
+    environment:
+      MONGODB_URI: "mongodb://admin:password123@mongodb-primary:27017,mongodb-secondary1:27017,mongodb-secondary2:27017/mongodb-ha-test?replicaSet=rs0&authSource=admin"
+      LOG_LEVEL: info
+      NODE_ENV: production
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    depends_on:
+      - mongodb-primary
+      - mongodb-secondary1
+      - mongodb-secondary2
+
+networks:
+  mongodb-network:
+    external: true
+
+volumes:
+  mongodb-primary-data:
+    driver: local
+  mongodb-primary-config:
+    driver: local
+  mongodb-secondary1-data:
+    driver: local
+  mongodb-secondary1-config:
+    driver: local
+  mongodb-secondary2-data:
+    driver: local
+  mongodb-secondary2-config:
+    driver: local

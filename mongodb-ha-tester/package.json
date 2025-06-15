@@ -1,0 +1,23 @@
+{
+  "name": "mongodb-ha-tester",
+  "version": "1.0.0",
+  "description": "MongoDB High Availability Tester and Monitor",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node test.js",
+    "monitor": "node monitor.js"
+  },
+  "keywords": ["mongodb", "replica-set", "monitoring", "high-availability"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mongoose": "^8.0.0",
+    "colors": "^1.4.0",
+    "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
