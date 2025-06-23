@@ -38,5 +38,5 @@ ENV LOG_LEVEL=info
 # 使用 dumb-init 作為入口點
 ENTRYPOINT ["dumb-init", "--"]
 
-# 預設啟動完整測試
-CMD ["node", "index.js", "full"]
+# 預設啟動完整測試（包含 Web 服務器 + 資料寫入）
+CMD ["npm", "start"]

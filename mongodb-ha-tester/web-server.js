@@ -40,8 +40,14 @@ class WebServer {
       // 設定 WebSocket
       this.setupWebSocket();
       
-      // 初始化監控器
-      await this.monitor.initialize();
+      // 嘗試初始化監控器
+      try {
+        await this.monitor.initialize();
+        console.log('✅ MongoDB 監控器連接成功');
+      } catch (monitorError) {
+        console.warn('⚠️ MongoDB 監控器連接失敗，Web 服務器將以受限模式運行:', monitorError.message);
+        this.monitor.isConnected = false;
+      }
       
       console.log('✅ Web 服務器初始化成功');
       return true;
@@ -118,6 +124,15 @@ class WebServer {
   // API: 獲取當前狀態
   async getStatus(req, res) {
     try {
+      // 檢查監控器連接狀態
+      if (!this.monitor.isConnected) {
+        res.status(503).json({
+          success: false,
+          error: 'MongoDB 連接未建立'
+        });
+        return;
+      }
+
       const status = await this.monitor.recordSystemStatus();
       if (status) {
         this.latestStatus = status;
@@ -132,6 +147,7 @@ class WebServer {
         });
       }
     } catch (error) {
+      console.error('獲取狀態失敗:', error.message);
       res.status(500).json({
         success: false,
         error: error.message
@@ -142,6 +158,15 @@ class WebServer {
   // API: 獲取統計資訊
   async getStats(req, res) {
     try {
+      // 檢查監控器連接狀態
+      if (!this.monitor.isConnected) {
+        res.status(503).json({
+          success: false,
+          error: 'MongoDB 連接未建立'
+        });
+        return;
+      }
+
       const now = Date.now();
       const runtime = now - this.stats.startTime;
       
@@ -173,6 +198,7 @@ class WebServer {
         }
       });
     } catch (error) {
+      console.error('獲取統計失敗:', error.message);
       res.status(500).json({
         success: false,
         error: error.message
@@ -183,6 +209,15 @@ class WebServer {
   // API: 獲取最近記錄
   async getRecords(req, res) {
     try {
+      // 檢查監控器連接狀態
+      if (!this.monitor.isConnected) {
+        res.status(503).json({
+          success: false,
+          error: 'MongoDB 連接未建立'
+        });
+        return;
+      }
+
       const limit = parseInt(req.query.limit) || 50;
       const offset = parseInt(req.query.offset) || 0;
       
@@ -205,6 +240,7 @@ class WebServer {
         }
       });
     } catch (error) {
+      console.error('獲取記錄失敗:', error.message);
       res.status(500).json({
         success: false,
         error: error.message
@@ -215,6 +251,15 @@ class WebServer {
   // API: 獲取錯誤日誌
   async getErrors(req, res) {
     try {
+      // 檢查監控器連接狀態
+      if (!this.monitor.isConnected) {
+        res.status(503).json({
+          success: false,
+          error: 'MongoDB 連接未建立'
+        });
+        return;
+      }
+
       const limit = parseInt(req.query.limit) || 20;
       const type = req.query.type;
       
@@ -230,6 +275,7 @@ class WebServer {
         data: errors
       });
     } catch (error) {
+      console.error('獲取錯誤日誌失敗:', error.message);
       res.status(500).json({
         success: false,
         error: error.message
@@ -328,33 +374,55 @@ class WebServer {
   startStatusUpdates() {
     setInterval(async () => {
       try {
-        const status = await this.monitor.recordSystemStatus();
-        if (status) {
-          this.latestStatus = status;
-          this.broadcast({
-            type: 'status',
-            data: status
-          });
+        // 檢查連接狀態，如果斷開則嘗試重新連接
+        if (!this.monitor.isConnected) {
+          console.log('⚠️ 檢測到 MongoDB 連接斷開，嘗試重新連接...');
+          try {
+            await this.monitor.connect();
+            console.log('✅ MongoDB 重新連接成功');
+          } catch (reconnectError) {
+            console.error('❌ MongoDB 重新連接失敗:', reconnectError.message);
+            return;
+          }
+        }
+
+        // 只有在監控器連接時才更新狀態
+        if (this.monitor.isConnected) {
+          const status = await this.monitor.recordSystemStatus();
+          if (status) {
+            this.latestStatus = status;
+            this.broadcast({
+              type: 'status',
+              data: status
+            });
+          }
         }
       } catch (error) {
         console.error('❌ 狀態更新失敗:', error.message);
+        // 如果錯誤是連接問題，標記為斷開
+        if (error.message.includes('Client must be connected')) {
+          this.monitor.isConnected = false;
+        }
       }
     }, config.testing.monitorInterval);
 
     // 統計更新
     setInterval(async () => {
       try {
-        const totalRecords = await TestRecord.countDocuments();
-        const totalErrors = await ErrorLog.countDocuments();
-        
-        this.broadcast({
-          type: 'stats',
-          data: {
-            totalRecords,
-            totalErrors,
-            timestamp: new Date().toISOString()
-          }
-        });
+        // 只有在監控器連接時才更新統計
+        if (this.monitor.isConnected) {
+          const totalRecords = await TestRecord.countDocuments();
+          const totalErrors = await ErrorLog.countDocuments();
+          
+          this.broadcast({
+            type: 'stats',
+            data: {
+              totalRecords,
+              totalErrors,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
       } catch (error) {
         console.error('❌ 統計更新失敗:', error.message);
       }

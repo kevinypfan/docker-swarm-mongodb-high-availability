@@ -59,8 +59,9 @@ class MongoDBMonitor {
     });
 
     mongoose.connection.on('error', async (error) => {
+      this.isConnected = false;
       console.error(colors.red('🔴 MongoDB 連線錯誤:'), error.message);
-      await this.logError('connection', 'MongoDB 連線錯誤', error);
+      // 不在連接錯誤時調用 logError，避免循環錯誤
     });
 
     mongoose.connection.on('disconnected', () => {
@@ -179,10 +180,20 @@ class MongoDBMonitor {
 
       const writeLatency = await this.measureWriteLatency();
       const readLatency = await this.measureReadLatency();
+      
+      // 獲取 MongoDB 版本資訊
+      let version = 'N/A';
+      try {
+        const buildInfo = await mongoose.connection.db.admin().command({ buildInfo: 1 });
+        version = buildInfo.version;
+      } catch (versionError) {
+        console.warn('⚠️ 無法獲取 MongoDB 版本:', versionError.message);
+      }
 
       const systemStatus = new SystemStatus({
         replicaSetStatus,
         connectionStatus: this.connectionStatus,
+        version,
         performance: {
           writeLatency,
           readLatency,
@@ -250,19 +261,25 @@ class MongoDBMonitor {
   // 記錄錯誤
   async logError(type, message, error) {
     try {
-      const errorLog = new ErrorLog({
-        type,
-        message,
-        details: {
-          stack: error?.stack,
-          code: error?.code,
-          name: error?.name
-        },
-        stack: error?.stack
-      });
-      
-      await errorLog.save();
-      this.errorCount++;
+      // 只在連接時才嘗試保存到資料庫
+      if (this.isConnected) {
+        const errorLog = new ErrorLog({
+          type,
+          message,
+          details: {
+            stack: error?.stack,
+            code: error?.code,
+            name: error?.name
+          },
+          stack: error?.stack
+        });
+        
+        await errorLog.save();
+        this.errorCount++;
+      } else {
+        // 連接斷開時只記錄到控制台
+        console.error(colors.red(`❌ [${type}] ${message}:`), error?.message || error);
+      }
     } catch (logError) {
       console.error(colors.red('❌ 記錄錯誤失敗:'), logError.message);
     }

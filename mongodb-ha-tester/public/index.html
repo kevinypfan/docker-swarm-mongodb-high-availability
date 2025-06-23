@@ -476,9 +476,10 @@
             const metricsEl = document.getElementById('systemMetrics');
             const statusEl = document.getElementById('systemStatus');
             
-            if (data) {
+            if (data && data.replicaSetStatus) {
                 // 判斷整體狀態
-                const isHealthy = data.replicaSet && data.replicaSet.ok === 1;
+                const replicaSet = data.replicaSetStatus;
+                const isHealthy = data.connectionStatus?.isConnected && replicaSet?.members?.length > 0;
                 statusEl.className = `status-indicator ${isHealthy ? 'status-healthy' : 'status-error'}`;
                 
                 metricsEl.innerHTML = `
@@ -488,20 +489,20 @@
                     </div>
                     <div class="metric">
                         <span class="metric-label">Replica Set:</span>
-                        <span class="metric-value">${data.replicaSet?.setName || 'N/A'}</span>
+                        <span class="metric-value">${replicaSet?.set || 'N/A'}</span>
                     </div>
                     <div class="metric">
                         <span class="metric-label">主節點:</span>
-                        <span class="metric-value">${data.replicaSet?.primary || 'N/A'}</span>
+                        <span class="metric-value">${data.connectionStatus?.primary || 'N/A'}</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">記憶體使用:</span>
-                        <span class="metric-value">${data.memory ? Math.round(data.memory.resident) + ' MB' : 'N/A'}</span>
+                        <span class="metric-label">連線狀態:</span>
+                        <span class="metric-value">${data.connectionStatus?.isConnected ? '已連線' : '未連線'}</span>
                     </div>
                 `;
                 
                 // 更新 Replica Set 列表
-                updateReplicaList(data.replicaSet?.members || []);
+                updateReplicaList(replicaSet?.members || []);
                 
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleString('zh-TW');
             } else {

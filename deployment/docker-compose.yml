@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mongodb-primary:
-    image: mongo:7.0
+    image: mongo:8.0.10
     hostname: mongodb-primary
     networks:
       - mongodb-network
@@ -29,7 +29,7 @@ services:
         max_attempts: 3
 
   mongodb-secondary1:
-    image: mongo:7.0
+    image: mongo:8.0.10
     hostname: mongodb-secondary1
     networks:
       - mongodb-network
@@ -54,7 +54,7 @@ services:
       - mongodb-primary
 
   mongodb-secondary2:
-    image: mongo:7.0
+    image: mongo:8.0.10
     hostname: mongodb-secondary2
     networks:
       - mongodb-network
@@ -80,7 +80,7 @@ services:
 
   # MongoDB High Availability Tester
   mongodb-ha-tester:
-    image: ${DOCKER_USERNAME:-yourusername}/mongodb-ha-tester:latest
+    image: kevinypfan/mongodb-ha-tester:latest
     hostname: mongodb-ha-tester
     networks:
       - mongodb-network

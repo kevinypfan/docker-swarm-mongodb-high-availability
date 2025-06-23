@@ -69,6 +69,12 @@ const systemStatusSchema = new mongoose.Schema({
     error: String
   },
   
+  // MongoDB 版本
+  version: {
+    type: String,
+    default: 'N/A'
+  },
+  
   // 效能指標
   performance: {
     writeLatency: Number,
